@@ -211,7 +211,7 @@ function Progress:BeginLoading(Message)
 				if Checked and Ready == true then self:RequestComplete(true) end
 			end
 			if self.CompletionRequested then
-				local Completed = pcall(self.Complete, self, self.CompletionResult)
+				local Completed = pcall(self.ApplyCompletion, self, self.CompletionResult)
 				if not Completed then self:Destroy() end
 				break
 			end
@@ -236,6 +236,11 @@ function Progress:SetLoadingVisible(Visible, Message)
 end
 
 function Progress:Complete(Success)
+	if self.Watching then self:RequestComplete(Success) return end
+	self:ApplyCompletion(Success)
+end
+
+function Progress:ApplyCompletion(Success)
 	if self.Destroyed or self.Completed then return end
 	self.Completed = true
 	if Success == nil then self:Destroy() return end
@@ -322,7 +327,7 @@ Modules["init"] = function(require)
 local Progress = require("./Progress")
 
 return {
-	Version = "1.1.1",
+	Version = "1.1.2",
 	CreateProgress = Progress.new,
 }
 
