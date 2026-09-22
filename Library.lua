@@ -190,10 +190,10 @@ function Progress:WaitForEntry()
 	return not self.Destroyed
 end
 
-function Progress:SetStage(Index)
+function Progress:SetStage(Index, Message)
 	if self.Destroyed or self.Resolved then return end
 	self.Stage = math.max(self.Stage, math.clamp(Index, 1, 3))
-	self.Title.Text = self.Stage == 1 and "Starting up" or "Checking compatibility"
+	self.Title.Text = Message or (self.Stage == 1 and "Starting up" or "Checking compatibility")
 	self:Animate("Fill", self.Fill, { Size = UDim2.fromScale(({ 0.16, 0.48, 0.8 })[self.Stage], 1) }, 0.38)
 end
 
@@ -236,7 +236,7 @@ Modules["init"] = function(require)
 local Progress = require("./Progress")
 
 return {
-	Version = "1.0.0",
+	Version = "1.0.1",
 	CreateProgress = Progress.new,
 }
 
