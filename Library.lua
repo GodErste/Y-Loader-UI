@@ -120,7 +120,8 @@ function Progress:Build()
 	end
 	local Mark = Label("Mark", "<i>Y</i>", UDim2.fromOffset(18, 17), UDim2.fromOffset(30, 30), 22, Theme.Text, Enum.Font.GothamBold)
 	Mark.RichText, Mark.BackgroundTransparency, Mark.BackgroundColor3, Mark.TextXAlignment = true, 0, Theme.Accent, Enum.TextXAlignment.Center
-	Label("Brand", "Y HUB.", UDim2.fromOffset(59, 17), UDim2.new(1, -110, 0, 30), 17, Theme.Text, Enum.Font.GothamBold)
+	self.Mark = Mark
+	self.Brand = Label("Brand", "Y HUB.", UDim2.fromOffset(59, 17), UDim2.new(1, -110, 0, 30), 17, Theme.Text, Enum.Font.GothamBold)
 	local Close = Create("TextButton", {
 		Name = "Close", Text = utf8.char(215), Position = UDim2.new(1, -50, 0, 8), Size = UDim2.fromOffset(44, 44),
 		BackgroundTransparency = 1, TextColor3 = Theme.Muted, TextSize = 23, Font = Enum.Font.Gotham,
@@ -130,6 +131,7 @@ function Progress:Build()
 		Name = "Track", Position = UDim2.fromOffset(18, 102), Size = UDim2.new(1, -36, 0, 3),
 		BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
 	}, self.Scroll)
+	self.Track = Track
 	self.Fill = Create("Frame", { Name = "Fill", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Theme.Pink, BorderSizePixel = 0 }, Track)
 	self.Hint = Label("Hint", "Community", UDim2.fromOffset(18, 126), UDim2.new(1, -158, 0, 44), 12, Theme.Muted)
 	local Discord = Create("TextButton", {
@@ -160,9 +162,66 @@ function Progress:Resize()
 	if self.Destroyed then return end
 	local Size = self.Layout.AbsoluteSize
 	if Size.X < 1 or Size.Y < 1 then return end
-	local Height = self.Invite.Visible and 232 or 184
+	local Height = self.Compact and 70 or (self.Invite.Visible and 232 or 184)
 	self.Scroll.CanvasSize = UDim2.fromOffset(0, Height)
 	self.Panel.Size = UDim2.fromOffset(math.min(356, math.max(1, Size.X - 24)), math.min(Height, math.max(1, Size.Y - 24)))
+end
+
+function Progress:StopActivity()
+	for _, Key in ipairs({ "Activity", "Sweep" }) do
+		if self.Tweens[Key] then self.Tweens[Key]:Cancel() self.Tweens[Key] = nil end
+	end
+end
+
+function Progress:StartActivity()
+	self:StopActivity()
+	self.Fill.BackgroundTransparency = 0
+	self.Fill.Position = UDim2.fromScale(0, 0)
+	if self.Compact then
+		self.Fill.Size = UDim2.fromScale(0.24, 1)
+		self:Animate("Sweep", self.Fill, { Position = UDim2.fromScale(0.76, 0) }, 1.2, -1, true)
+	end
+	self:Animate("Activity", self.Fill, { BackgroundTransparency = 0.4 }, 0.8, -1, true)
+end
+
+function Progress:SetCompact(Compact)
+	self.Compact = Compact
+	self.Gui.DisplayOrder = Compact and 9999 or 10001
+	self.Brand.Visible, self.Hint.Visible, self.Discord.Visible = not Compact, not Compact, not Compact
+	self.Invite.Visible = false
+	self.Title.Position = Compact and UDim2.fromOffset(60, 19) or UDim2.fromOffset(18, 61)
+	self.Title.Size = Compact and UDim2.new(1, -116, 0, 25) or UDim2.new(1, -36, 0, 25)
+	self.Track.Position = UDim2.fromOffset(18, Compact and 56 or 102)
+	self:Resize()
+end
+
+function Progress:BeginLoading(Message)
+	if self.Destroyed or self.Resolved then return end
+	if self.Tweens.Fill then self.Tweens.Fill:Cancel() self.Tweens.Fill = nil end
+	self:SetCompact(true)
+	self.Title.Text = Message or "Loading Y Hub"
+	self:StartActivity()
+end
+
+function Progress:SetLoadingVisible(Visible, Message)
+	if self.Destroyed or self.Resolved then return end
+	if Message then self.Title.Text = Message end
+	self.Gui.Enabled = Visible
+	if Visible then self:StartActivity() else self:StopActivity() end
+end
+
+function Progress:Complete(Success)
+	if self.Destroyed or self.Completed then return end
+	self.Completed = true
+	if Success == nil then self:Destroy() return end
+	self.Gui.Enabled = true
+	if not Success then self:SetCompact(false) end
+	self:SetResult(Success, Success and "Ready" or "Unable to load Y Hub")
+	if Success then
+		task.delay(0.45, function()
+			if not self.Destroyed then self:Dismiss() end
+		end)
+	end
 end
 
 function Progress:CopyInvite()
@@ -203,7 +262,8 @@ function Progress:SetResult(Success, Message)
 	self.Title.Text = Message or (Success and "Ready" or "Executor not supported")
 	self.Title.TextColor3 = Success and self.Config.Theme.Success or self.Config.Theme.Error
 	self.Hint.Text = Success and "Community" or "Need help?"
-	if self.Tweens.Activity then self.Tweens.Activity:Cancel() self.Tweens.Activity = nil end
+	self:StopActivity()
+	self.Fill.Position = UDim2.fromScale(0, 0)
 	self.Fill.BackgroundTransparency = 0
 	self.Fill.BackgroundColor3 = self.Title.TextColor3
 	self:Animate("Fill", self.Fill, { Size = UDim2.fromScale(1, 1) }, 0.4)
@@ -236,7 +296,7 @@ Modules["init"] = function(require)
 local Progress = require("./Progress")
 
 return {
-	Version = "1.0.1",
+	Version = "1.1.0",
 	CreateProgress = Progress.new,
 }
 
