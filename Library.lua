@@ -201,6 +201,31 @@ function Progress:BeginLoading(Message)
 	self:SetCompact(true)
 	self.Title.Text = Message or "Loading Y Hub"
 	self:StartActivity()
+	if self.Watching then return end
+	self.Watching = true
+	-- Keep UI cleanup on the original UI thread, including after native game calls.
+	task.spawn(function()
+		while not self.Destroyed and not self.Resolved do
+			if not self.CompletionRequested and self.ReadyProbe then
+				local Checked, Ready = pcall(self.ReadyProbe)
+				if Checked and Ready == true then self:RequestComplete(true) end
+			end
+			if self.CompletionRequested then
+				local Completed = pcall(self.Complete, self, self.CompletionResult)
+				if not Completed then self:Destroy() end
+				break
+			end
+			task.wait(0.2)
+		end
+		self.ReadyProbe = nil
+		self.Watching = false
+	end)
+end
+
+function Progress:RequestComplete(Success)
+	if self.Destroyed or self.Completed or self.CompletionRequested then return end
+	self.CompletionResult = Success
+	self.CompletionRequested = true
 end
 
 function Progress:SetLoadingVisible(Visible, Message)
@@ -281,6 +306,7 @@ end
 function Progress:Destroy()
 	if self.Destroyed then return end
 	self.Destroyed = true
+	self.ReadyProbe = nil
 	for _, Connection in ipairs(self.Connections) do Connection:Disconnect() end
 	for _, Tween in pairs(self.Tweens) do Tween:Cancel() end
 	table.clear(self.Connections)
@@ -296,7 +322,7 @@ Modules["init"] = function(require)
 local Progress = require("./Progress")
 
 return {
-	Version = "1.1.0",
+	Version = "1.1.1",
 	CreateProgress = Progress.new,
 }
 
